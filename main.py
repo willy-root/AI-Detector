@@ -322,7 +322,7 @@ class AIDetectorBot:
             result_img = original_image.copy()
 
             # Добавляем текст с результатами
-            text_color = (0, 255, 0) if results.get('combined_ai', 0.5) < 0.5 else (0, 0, 255)
+            text_color = (255, 160, 0) if results.get('combined_ai', 0.5) < 0.5 else (0, 0, 255)
 
             # Базовый текст
             verdict = results.get('verdict', 'Uncertain')
@@ -331,13 +331,13 @@ class AIDetectorBot:
             # Добавляем текст на изображение
             #font = ImageFont.truetype("fonts/DejaVuSerif-Bold.ttf", 16)
             font = cv2.FONT_HERSHEY_SIMPLEX
-            scale = 1.4
-            thickness = 2
+            scale = 1.6
+            thickness = 4
 
             cv2.putText(result_img, f"Result: {verdict}",
                         (10, 50), font, scale, text_color, thickness)
             cv2.putText(result_img, f"Probability AI: {ai_prob:.1f}%",
-                        (10, 80), font, scale, text_color, thickness)
+                        (10, 110), font, scale, text_color, thickness)
 
             # Добавляем рамку
             cv2.rectangle(result_img, (5, 5),
@@ -671,7 +671,7 @@ def main():
 
     # Запускаем бота
     print("✅ Бот запущен. Ожидаем сообщений...")
-    print("📱 Перейдите в Telegram и найдите @AI_Image_Detector_Bot")
+    print("📱 Перейдите в Telegram и найдите @AIDetect0r_Bot")
     print("💻 Нажмите Ctrl+C для остановки")
 
     # Запускаем polling
