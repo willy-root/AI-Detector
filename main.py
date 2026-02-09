@@ -325,18 +325,18 @@ class AIDetectorBot:
             text_color = (0, 255, 0) if results.get('combined_ai', 0.5) < 0.5 else (0, 0, 255)
 
             # Базовый текст
-            verdict = results.get('verdict', 'Неопределенно')
+            verdict = results.get('verdict', 'Uncertain')
             ai_prob = results.get('combined_ai', 0.5) * 100
 
             # Добавляем текст на изображение
-            font = ImageFont.truetype("fonts/DejaVuSerif-Bold.ttf", 16)
-            #font = cv2.FONT_HERSHEY_SIMPLEX
-            scale = 0.8
+            #font = ImageFont.truetype("fonts/DejaVuSerif-Bold.ttf", 16)
+            font = cv2.FONT_HERSHEY_SIMPLEX
+            scale = 1.2
             thickness = 2
 
-            cv2.putText(result_img, f"Результат: {verdict}",
+            cv2.putText(result_img, f"Result: {verdict}",
                         (10, 30), font, scale, text_color, thickness)
-            cv2.putText(result_img, f"Вероятность AI: {ai_prob:.1f}%",
+            cv2.putText(result_img, f"Probability AI: {ai_prob:.1f}%",
                         (10, 60), font, scale, text_color, thickness)
 
             # Добавляем рамку
@@ -347,7 +347,7 @@ class AIDetectorBot:
             return result_img
 
         except Exception as e:
-            logger.error(f"Ошибка создания результата: {e}")
+            logger.error(f"Error creating result: {e}")
             return original_image
 
 
