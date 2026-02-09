@@ -1,4 +1,5 @@
 import os
+import dotenv
 import logging
 import numpy as np
 from PIL import Image
@@ -23,8 +24,10 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+
 # Токен бота (ЗАМЕНИТЕ НА СВОЙ!)
-TELEGRAM_TOKEN = "8557211461:AAH4YOPtIh1r7BXn_pZ232T8rcnh7UCAHvo"
+dotenv.load_dotenv()
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 
 
 class AIDetectorBot:

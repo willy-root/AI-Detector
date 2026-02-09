@@ -137,8 +137,8 @@ def train_and_save():
         # Проходим по тем же картинкам для извлечения признаков opencv
         for class_name in ['real', 'ai']:
             class_dir = os.path.join(DATASET_PATH, 'train', class_name)
-            #label = 0 if class_name == 'real' else 1
-            label = 1 if class_name == 'real' else 0
+            label = 0 if class_name == 'real' else 1
+            #label = 1 if class_name == 'real' else 0
             if not os.path.exists(class_dir): continue
 
             for img_name in os.listdir(class_dir):
