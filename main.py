@@ -2,7 +2,7 @@ import os
 import dotenv
 import logging
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageFonImageFontt
 import io
 import cv2
 import torch
@@ -329,7 +329,7 @@ class AIDetectorBot:
             ai_prob = results.get('combined_ai', 0.5) * 100
 
             # Добавляем текст на изображение
-            font = cv2.FONT_HERSHEY_PLAIN
+            font = ImageFont.truetype("fonts/DejaVuSerif-Bold.ttf", 16)
             #font = cv2.FONT_HERSHEY_SIMPLEX
             scale = 0.8
             thickness = 2
