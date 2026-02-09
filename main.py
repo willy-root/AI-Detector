@@ -2,7 +2,7 @@ import os
 import dotenv
 import logging
 import numpy as np
-from PIL import Image, ImageFonImageFontt
+from PIL import Image, ImageFont
 import io
 import cv2
 import torch
