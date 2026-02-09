@@ -322,7 +322,8 @@ class AIDetectorBot:
             result_img = original_image.copy()
 
             # Добавляем текст с результатами
-            text_color = (255, 160, 0) if results.get('combined_ai', 0.5) < 0.5 else (0, 0, 255)
+            #text_color = (255, 160, 0) if results.get('combined_ai', 0.5) < 0.5 else (0, 0, 255)
+            text_color = (255, 160, 0)
 
             # Базовый текст
             verdict = results.get('verdict', 'Uncertain')
