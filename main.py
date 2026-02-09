@@ -332,13 +332,13 @@ class AIDetectorBot:
             # Добавляем текст на изображение
             #font = ImageFont.truetype("fonts/DejaVuSerif-Bold.ttf", 16)
             font = cv2.FONT_HERSHEY_SIMPLEX
-            scale = 1.6
-            thickness = 4
+            scale = 1.8
+            thickness = 6
 
             cv2.putText(result_img, f"Result: {verdict}",
-                        (10, 50), font, scale, text_color, thickness)
+                        (30, 70), font, scale, text_color, thickness)
             cv2.putText(result_img, f"Probability AI: {ai_prob:.1f}%",
-                        (10, 110), font, scale, text_color, thickness)
+                        (30, 140), font, scale, text_color, thickness)
 
             # Добавляем рамку
             cv2.rectangle(result_img, (5, 5),
