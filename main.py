@@ -30,6 +30,8 @@ dotenv.load_dotenv()
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 
 
+# XZ
+
 class AIDetectorBot:
     """Класс детектора AI-изображений для Telegram бота"""
 
