@@ -329,7 +329,8 @@ class AIDetectorBot:
             ai_prob = results.get('combined_ai', 0.5) * 100
 
             # Добавляем текст на изображение
-            font = cv2.FONT_HERSHEY_SIMPLEX
+            font = cv2.FONT_HERSHEY_PLAIN
+            #font = cv2.FONT_HERSHEY_SIMPLEX
             scale = 0.8
             thickness = 2
 
