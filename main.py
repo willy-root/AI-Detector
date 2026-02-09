@@ -25,7 +25,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-# Токен бота (ЗАМЕНИТЕ НА СВОЙ!)
+# Токен бота (ЗАМЕНИТЕ НА СВОЙ!) !!! Вынесен в файл окружения .env
 dotenv.load_dotenv()
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 
