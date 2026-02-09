@@ -84,7 +84,8 @@ def extract_features(image_array):
 # 3. Процесс обучения
 def train_and_save():
     os.makedirs('models', exist_ok=True)
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    #device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    device = torch.device('cpu')
     print(f"🖥️ Устройство для обучения: {device}")
 
     # --- Настройки ---
@@ -101,7 +102,8 @@ def train_and_save():
     ])
 
     cnn_model = SimpleCNN().to(device)
-    rf_classifier = RandomForestClassifier(n_estimators=100, max_depth=10, random_state=42)
+    rf_classifier = RandomForestClassifier(n_estimators=100, m'cuda' if torch.cuda.is_available() elseax_depth=10, random_state=42)
+    n 
     scaler = StandardScaler()
 
     # --- Проверка наличия данных ---

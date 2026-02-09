@@ -37,6 +37,7 @@ class AIDetectorBot:
 
     def __init__(self):
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        #self.device = torch.device('cpu')
         print(f"Используется устройство: {self.device}")
 
         # Создаем папки если их нет
@@ -323,7 +324,7 @@ class AIDetectorBot:
 
             # Добавляем текст с результатами
             #text_color = (255, 160, 0) if results.get('combined_ai', 0.5) < 0.5 else (0, 0, 255)
-            #text_color = (255, 160, 0)
+            text_color = (255, 160, 0)
 
             # Базовый текст
             #verdict = results.get('verdict', 'Uncertain')
