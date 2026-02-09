@@ -146,7 +146,8 @@ def train_and_save():
                     img_type = "__ AI __ "
                     if label == 1: img_type = "__REAL__ "
                     img_path = os.path.join(class_dir, img_name)
-                    logger.info(f"Training on {img_type} image: {img_path}")
+                    #logger.info(f"Training on {img_type} image: {img_path}")
+                    print(f"Training on {img_type} image: {img_path}")
                     img = cv2.imread(img_path)
                     if img is None: continue
                     feats = extract_features(img)
