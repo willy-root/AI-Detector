@@ -143,8 +143,8 @@ def train_and_save():
 
             for img_name in os.listdir(class_dir):
                 try:
-                    img_type = "__ AI __ "
-                    if label == 1: img_type = "__REAL__ "
+                    img_type = "__REAL__ "
+                    if label == 1: img_type = "__ AI __ "
                     img_path = os.path.join(class_dir, img_name)
                     #logger.info(f"Training on {img_type} image: {img_path}")
                     print(f"Training on {img_type} image: {img_path}")

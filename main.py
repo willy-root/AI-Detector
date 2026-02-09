@@ -323,22 +323,22 @@ class AIDetectorBot:
 
             # Добавляем текст с результатами
             #text_color = (255, 160, 0) if results.get('combined_ai', 0.5) < 0.5 else (0, 0, 255)
-            text_color = (255, 160, 0)
+            #text_color = (255, 160, 0)
 
             # Базовый текст
-            verdict = results.get('verdict', 'Uncertain')
-            ai_prob = results.get('combined_ai', 0.5) * 100
+            #verdict = results.get('verdict', 'Uncertain')
+            #ai_prob = results.get('combined_ai', 0.5) * 100
 
             # Добавляем текст на изображение
             #font = ImageFont.truetype("fonts/DejaVuSerif-Bold.ttf", 16)
-            font = cv2.FONT_HERSHEY_SIMPLEX
-            scale = 1.6
-            thickness = 4
+            #font = cv2.FONT_HERSHEY_SIMPLEX
+            #scale = 1.4
+            #thickness = 2
 
-            cv2.putText(result_img, f"Result: {verdict}",
-                        (30, 70), font, scale, text_color, thickness)
-            cv2.putText(result_img, f"Probability AI: {ai_prob:.1f}%",
-                        (30, 140), font, scale, text_color, thickness)
+            #cv2.putText(result_img, f"Result: {verdict}",
+            #            (30, 70), font, scale, text_color, thickness)
+            #cv2.putText(result_img, f"Probability AI: {ai_prob:.1f}%",
+            #            (30, 140), font, scale, text_color, thickness)
 
             # Добавляем рамку
             cv2.rectangle(result_img, (5, 5),
