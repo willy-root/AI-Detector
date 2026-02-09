@@ -332,8 +332,8 @@ class AIDetectorBot:
             # Добавляем текст на изображение
             #font = ImageFont.truetype("fonts/DejaVuSerif-Bold.ttf", 16)
             font = cv2.FONT_HERSHEY_SIMPLEX
-            scale = 1.8
-            thickness = 6
+            scale = 1.6
+            thickness = 4
 
             cv2.putText(result_img, f"Result: {verdict}",
                         (30, 70), font, scale, text_color, thickness)
