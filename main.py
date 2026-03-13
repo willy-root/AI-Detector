@@ -1,4 +1,5 @@
 import os
+import time
 import dotenv
 import logging
 import numpy as np
@@ -17,6 +18,7 @@ from telegram import Update, InputFile
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 from telegram.constants import ParseMode
 
+
 # Настройка логирования
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -24,19 +26,31 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-
-# Токен бота (ЗАМЕНИТЕ НА СВОЙ!) !!! Вынесен в файл окружения .env
+# Токен вынесен в файл окружения .env
 dotenv.load_dotenv()
-TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
+TELEGRAM_TOKEN =    os.getenv("TELEGRAM_TOKEN")
+
+# Не приватные переменные окружения, вместо export, вынесены в файл
+dotenv.load_dotenv("./.env_open")
+CNN_AI_INDEX =      os.getenv("CNN_AI_INDEX")
+FEATURE_AI_LABEL =  os.getenv("FEATURE_AI_LABEL", "1")
+FEATURE_AUTO_FLIP = os.getenv("FEATURE_AUTO_FLIP", "1") != "0"
 
 
 class AIDetectorBot:
     """Класс детектора AI-изображений для Telegram бота"""
 
     def __init__(self):
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        #self.device = torch.device('cpu')
+        global FEATURE_AUTO_FLIP
+        #self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.device = torch.device('cpu')
         print(f"Используется устройство: {self.device}")
+        self.cnn_ai_index = self._resolve_cnn_ai_index()
+        self.feature_ai_label = self._resolve_feature_ai_label()
+        #self.feature_auto_flip = os.getenv("FEATURE_AUTO_FLIP", "1") != "0"
+        self.feature_auto_flip = FEATURE_AUTO_FLIP
+        self.cnn_model_loaded = False
+        self.feature_model_loaded = False
 
         # Создаем папки если их нет
         os.makedirs('user_images', exist_ok=True)
@@ -51,6 +65,57 @@ class AIDetectorBot:
             'ai_detected': 0,
             'real_detected': 0
         }
+
+    def _resolve_cnn_ai_index(self):
+        """Определяет индекс класса AI в выходе CNN."""
+        #env_value = os.getenv("CNN_AI_INDEX")
+        global CNN_AI_INDEX
+        env_value = CNN_AI_INDEX
+        if env_value in {"0", "1"}:
+            return int(env_value)
+
+        dataset_train_dir = os.path.join("dataset", "train")
+        if os.path.isdir(dataset_train_dir):
+            class_dirs = sorted(
+                name for name in os.listdir(dataset_train_dir)
+                if os.path.isdir(os.path.join(dataset_train_dir, name))
+            )
+            if "ai" in class_dirs:
+                ai_index = class_dirs.index("ai")
+                logger.info(
+                    "Индекс AI для CNN определен по папкам датасета: %s (классы=%s)",
+                    ai_index, class_dirs
+                )
+                return ai_index
+
+        # Для ImageFolder классы обычно сортируются как ['ai', 'real'] => AI = 0
+        return 0
+
+    def _resolve_feature_ai_label(self):
+        """
+        Определяет, какое значение метки в RandomForest соответствует классу AI.
+        По умолчанию используется '1' (можно изменить через FEATURE_AI_LABEL).
+        """
+        global FEATURE_AI_LABEL
+        #return os.getenv("FEATURE_AI_LABEL", "1")
+        return FEATURE_AI_LABEL
+
+    def _maybe_flip_feature_probability(self, cnn_ai_prob, feature_ai_prob):
+        """
+        При явной инверсии меток в признаковом классификаторе
+        (когда его прогноз зеркален CNN), автоматически отражает вероятность.
+        """
+        if not self.feature_auto_flip:
+            return feature_ai_prob, False
+
+        raw_diff = abs(cnn_ai_prob - feature_ai_prob)
+        flipped_ai = 1.0 - feature_ai_prob
+        flipped_diff = abs(cnn_ai_prob - flipped_ai)
+
+        if raw_diff >= 0.45 and (raw_diff - flipped_diff) >= 0.25:
+            return flipped_ai, True
+
+        return feature_ai_prob, False
 
     def initialize_models(self):
         """Инициализация моделей детектора"""
@@ -117,58 +182,91 @@ class AIDetectorBot:
             if os.path.exists('models/cnn_model.pth'):
                 self.cnn_model.load_state_dict(torch.load('models/cnn_model.pth',
                                                           map_location=self.device))
+                self.cnn_model_loaded = True
                 print("✓ Загружена CNN модель")
+            else:
+                logger.warning("Файл models/cnn_model.pth не найден, CNN работать не будет")
 
             if os.path.exists('models/classifier.joblib'):
                 self.feature_classifier = joblib.load('models/classifier.joblib')
                 print("✓ Загружен классификатор")
+            else:
+                logger.warning("Файл models/classifier.joblib не найден")
 
             if os.path.exists('models/scaler.joblib'):
                 self.scaler = joblib.load('models/scaler.joblib')
                 print("✓ Загружен нормализатор")
+            else:
+                logger.warning("Файл models/scaler.joblib не найден")
+
+            self.feature_model_loaded = (
+                os.path.exists('models/classifier.joblib') and
+                os.path.exists('models/scaler.joblib')
+            )
 
         except Exception as e:
             print(f"Не удалось загрузить модели: {e}")
             print("Используются модели с базовыми настройками")
+            self.cnn_model_loaded = False
+            self.feature_model_loaded = False
 
-    def extract_features(self, image_array):
+    def extract_features(self, image_array, expected_dim=None):
         """Извлечение признаков из изображения"""
         try:
             if len(image_array.shape) == 2:  # Если черно-белое
                 image_array = cv2.cvtColor(image_array, cv2.COLOR_GRAY2RGB)
 
-            features = {}
-
-            # 1. Цветовые признаки
-            features['mean_color'] = np.mean(image_array, axis=(0, 1))
-            features['std_color'] = np.std(image_array, axis=(0, 1))
-
-            # 2. Яркость и контраст
+            # 1. Базовые признаки (совместимы со старой моделью на 19 признаков)
             gray = cv2.cvtColor(image_array, cv2.COLOR_RGB2GRAY)
-            features['brightness'] = np.mean(gray)
-            features['contrast'] = np.std(gray)
-
-            # 3. Градиенты (текстура)
+            brightness = float(np.mean(gray))
+            contrast = float(np.std(gray))
             sobelx = cv2.Sobel(gray, cv2.CV_64F, 1, 0, ksize=3)
             sobely = cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=3)
             gradient = np.sqrt(sobelx ** 2 + sobely ** 2)
-            features['gradient_mean'] = np.mean(gradient)
-            features['gradient_std'] = np.std(gradient)
+            gradient_mean = float(np.mean(gradient))
+            gradient_std = float(np.std(gradient))
 
-            # 4. Простая гистограмма
+            # 2. Гистограмма
             hist = cv2.calcHist([gray], [0], None, [16], [0, 256])
-            hist = hist.flatten() / hist.sum()
-            features['histogram'] = hist
+            hist = hist.flatten()
+            hist = hist / (hist.sum() + 1e-6)
 
-            # Собираем все признаки в вектор
-            feature_vector = []
-            for key, value in features.items():
-                if isinstance(value, np.ndarray):
-                    feature_vector.extend(value.flatten())
-                else:
-                    feature_vector.append(value)
+            # 3. Расширенные цветовые признаки (новый формат, 26 признаков)
+            mean_color = np.mean(image_array, axis=(0, 1))
+            std_color = np.std(image_array, axis=(0, 1))
 
-            return np.array(feature_vector)
+            vector_19 = [brightness, contrast, gradient_mean]
+            vector_19.extend(hist.tolist())
+
+            vector_26 = mean_color.flatten().tolist()
+            vector_26.extend(std_color.flatten().tolist())
+            vector_26.extend([brightness, contrast, gradient_mean, gradient_std])
+            vector_26.extend(hist.tolist())
+
+            if expected_dim is None:
+                return np.array(vector_26, dtype=np.float32)
+
+            if expected_dim == 19:
+                return np.array(vector_19, dtype=np.float32)
+
+            if expected_dim == 26:
+                return np.array(vector_26, dtype=np.float32)
+
+            if expected_dim < 26:
+                logger.warning(
+                    "Неожиданная размерность признаков у scaler: %s. "
+                    "Использую первые %s признаков.",
+                    expected_dim, expected_dim
+                )
+                return np.array(vector_26[:expected_dim], dtype=np.float32)
+
+            logger.warning(
+                "Неожиданная размерность признаков у scaler: %s. "
+                "Дополняю нулями до нужной длины.",
+                expected_dim
+            )
+            padded = vector_26 + [0.0] * (expected_dim - len(vector_26))
+            return np.array(padded, dtype=np.float32)
 
         except Exception as e:
             logger.error(f"Ошибка извлечения признаков: {e}")
@@ -177,6 +275,9 @@ class AIDetectorBot:
     def analyze_with_cnn(self, image):
         """Анализ изображения CNN"""
         try:
+            if not self.cnn_model_loaded:
+                return None
+
             # Преобразуем numpy array в PIL Image
             if isinstance(image, np.ndarray):
                 image = Image.fromarray(image)
@@ -188,9 +289,22 @@ class AIDetectorBot:
             with torch.no_grad():
                 self.cnn_model.eval()
                 output = self.cnn_model(image_tensor)
-                probabilities = output.cpu().numpy()[0]
+                probabilities = output.cpu().numpy()[0].astype(float)
 
-            return probabilities
+            if probabilities.shape[0] != 2 or self.cnn_ai_index not in (0, 1):
+                logger.error(
+                    "Некорректный выход CNN: shape=%s, cnn_ai_index=%s",
+                    probabilities.shape, self.cnn_ai_index
+                )
+                return None
+
+            ai_prob = float(probabilities[self.cnn_ai_index])
+            real_prob = float(probabilities[1 - self.cnn_ai_index])
+
+            return {
+                'ai': ai_prob,
+                'real': real_prob
+            }
 
         except Exception as e:
             logger.error(f"Ошибка CNN анализа: {e}")
@@ -199,19 +313,46 @@ class AIDetectorBot:
     def analyze_with_features(self, image):
         """Анализ на основе признаков"""
         try:
-            features = self.extract_features(image)
+            if not self.feature_model_loaded:
+                return None
+
+            expected_dim = getattr(self.scaler, 'n_features_in_', None)
+            if expected_dim is None:
+                expected_dim = getattr(self.feature_classifier, 'n_features_in_', None)
+
+            if expected_dim is None:
+                logger.error("Невозможно определить размерность признаков для scaler/classifier")
+                return None
+
+            features = self.extract_features(image, expected_dim=expected_dim)
             if features is None:
                 return None
 
-            # Нормализация и предсказание
-            if hasattr(self.scaler, 'mean_'):
-                features_scaled = self.scaler.transform([features])
-                probs = self.feature_classifier.predict_proba(features_scaled)[0]
-            else:
-                # Базовое предсказание
-                probs = np.array([0.5, 0.5])
+            features_scaled = self.scaler.transform(features.reshape(1, -1))
+            probs = self.feature_classifier.predict_proba(features_scaled)[0]
+            classes = getattr(self.feature_classifier, 'classes_', None)
 
-            return probs
+            if classes is None or len(classes) != len(probs):
+                logger.error("Некорректные classes_ у feature_classifier: %s", classes)
+                return None
+
+            class_to_prob = {str(cls): float(prob) for cls, prob in zip(classes, probs)}
+            ai_key = str(self.feature_ai_label)
+            if ai_key not in class_to_prob:
+                logger.error(
+                    "Метка AI '%s' не найдена в classes_=%s. "
+                    "Укажите FEATURE_AI_LABEL корректно.",
+                    ai_key, list(class_to_prob.keys())
+                )
+                return None
+
+            ai_prob = class_to_prob[ai_key]
+            real_prob = 1.0 - ai_prob
+
+            return {
+                'ai': float(ai_prob),
+                'real': float(real_prob)
+            }
 
         except Exception as e:
             logger.error(f"Ошибка feature анализа: {e}")
@@ -247,43 +388,69 @@ class AIDetectorBot:
             results = {}
 
             # Анализ CNN
-            cnn_probs = self.analyze_with_cnn(image_array)
-            if cnn_probs is not None:
-                results['cnn_real'] = cnn_probs[0]
-                results['cnn_ai'] = cnn_probs[1]
+            cnn_result = self.analyze_with_cnn(image_array)
+            if cnn_result is not None:
+                results['cnn_real'] = cnn_result['real']
+                results['cnn_ai'] = cnn_result['ai']
 
             # Анализ по признакам
-            feature_probs = self.analyze_with_features(image_array)
-            if feature_probs is not None:
-                results['feature_real'] = feature_probs[0]
-                results['feature_ai'] = feature_probs[1]
+            feature_result = self.analyze_with_features(image_array)
+            if feature_result is not None:
+                feature_ai = feature_result['ai']
+                feature_real = feature_result['real']
+
+                if cnn_result is not None:
+                    corrected_ai, flipped = self._maybe_flip_feature_probability(
+                        cnn_result['ai'], feature_ai
+                    )
+                    if flipped:
+                        logger.warning(
+                            "Вероятности признаковой модели инвертированы. "
+                            "Выполнена авто-коррекция feature_ai -> 1 - feature_ai."
+                        )
+                        feature_ai = corrected_ai
+                        feature_real = 1.0 - corrected_ai
+                        results['feature_label_auto_flipped'] = True
+
+                results['feature_real'] = feature_real
+                results['feature_ai'] = feature_ai
 
             # Поиск артефактов
             artifacts = self.detect_ai_artifacts(image_array)
             results['artifacts'] = artifacts
 
             # Комбинированный результат
-            if cnn_probs is not None and feature_probs is not None:
-                combined_ai = (cnn_probs[1] + feature_probs[1]) / 2
-                results['combined_ai'] = combined_ai
+            weighted_scores = []
+            if cnn_result is not None:
+                weighted_scores.append((results['cnn_ai'], 0.6))
+            if feature_result is not None:
+                weighted_scores.append((results['feature_ai'], 0.4))
 
-                # Определение вердикта
-                if combined_ai > 0.7:
-                    results['verdict'] = "🤖 ВЫСОКАЯ ВЕРОЯТНОСТЬ AI"
-                    results['confidence'] = "Высокая"
-                    self.stats['ai_detected'] += 1
-                elif combined_ai > 0.6:
-                    results['verdict'] = "⚠️ Возможно AI"
-                    results['confidence'] = "Средняя"
-                elif combined_ai > 0.4:
-                    results['verdict'] = "❓ Неопределенно"
-                    results['confidence'] = "Низкая"
-                else:
-                    results['verdict'] = "✅ Вероятно реальное"
-                    results['confidence'] = "Высокая"
-                    self.stats['real_detected'] += 1
+            if weighted_scores:
+                total_weight = sum(weight for _, weight in weighted_scores)
+                combined_ai = sum(prob * weight for prob, weight in weighted_scores) / total_weight
+            else:
+                combined_ai = 0.5
 
-                self.stats['total_images'] += 1
+            results['combined_ai'] = combined_ai
+
+            # Определение вердикта
+            if combined_ai > 0.7:
+                results['verdict'] = "🤖 ВЫСОКАЯ ВЕРОЯТНОСТЬ AI"
+                results['confidence'] = "Высокая"
+                self.stats['ai_detected'] += 1
+            elif combined_ai > 0.6:
+                results['verdict'] = "⚠️ Возможно AI"
+                results['confidence'] = "Средняя"
+            elif combined_ai > 0.4:
+                results['verdict'] = "❓ Неопределенно"
+                results['confidence'] = "Низкая"
+            else:
+                results['verdict'] = "✅ Вероятно реальное"
+                results['confidence'] = "Высокая"
+                self.stats['real_detected'] += 1
+
+            self.stats['total_images'] += 1
 
             # Сохраняем изображение для истории
             self.save_user_image(image_array, user_id, results.get('verdict', 'Unknown'))
@@ -527,12 +694,12 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 🎲 **Уверенность:** {results.get('confidence', 'Средняя')}
 
 📈 **Вероятности:**
-• AI-генерация: {results.get('combined_ai', 0) * 100:.1f}%
-• Реальное фото: {(1 - results.get('combined_ai', 0)) * 100:.1f}%
+• AI-генерация: {results.get('combined_ai', 0.5) * 100:.1f}%
+• Реальное фото: {(1 - results.get('combined_ai', 0.5)) * 100:.1f}%
 
 🔬 **Методы анализа:**
-• Нейросеть (CNN): {results.get('cnn_ai', 0) * 100:.1f}% AI
-• Анализ признаков: {results.get('feature_ai', 0) * 100:.1f}% AI
+• Нейросеть (CNN): {results.get('cnn_ai', 0.5) * 100:.1f}% AI
+• Анализ признаков: {results.get('feature_ai', 0.5) * 100:.1f}% AI
 
 ⚠️ **Обнаружены артефакты:**
 • Резкость: {results.get('artifacts', {}).get('sharpness', 0):.2f}
@@ -602,12 +769,12 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
 📄 **Анализ файла:** {document.file_name}
 
 🎯 **Вердикт:** {results.get('verdict', 'Не определен')}
-📊 **Вероятность AI:** {results.get('combined_ai', 0) * 100:.1f}%
+📊 **Вероятность AI:** {results.get('combined_ai', 0.5) * 100:.1f}%
 
 🔍 **Детали:**
 • Размер: {image.shape[1]}x{image.shape[0]} пикселей
-• Метод CNN: {results.get('cnn_ai', 0) * 100:.1f}% AI
-• Анализ признаков: {results.get('feature_ai', 0) * 100:.1f}% AI
+• Метод CNN: {results.get('cnn_ai', 0.5) * 100:.1f}% AI
+• Анализ признаков: {results.get('feature_ai', 0.5) * 100:.1f}% AI
 
 💡 Файл успешно проанализирован!
         """
@@ -648,6 +815,8 @@ async def unknown_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def main():
     """Основная функция запуска бота"""
     print("🚀 Запуск AI Image Detector Telegram Bot...")
+    if not TELEGRAM_TOKEN:
+        raise RuntimeError("TELEGRAM_TOKEN не найден в переменных окружения")
     print(f"🤖 Токен: {TELEGRAM_TOKEN[:10]}...")
 
     # Создаем Application
@@ -679,8 +848,6 @@ def main():
 
 
 if __name__ == "__main__":
-    import time
-
     try:
         main()
     except KeyboardInterrupt:
