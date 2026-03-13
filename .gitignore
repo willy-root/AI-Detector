@@ -4,6 +4,7 @@ models/
 fonts/
 */models/
 train_output.txt
+train_report.txt
 
 
 # Byte-compiled / optimized / DLL files
