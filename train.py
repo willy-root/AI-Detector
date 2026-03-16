@@ -210,7 +210,8 @@ def train_and_save():
 
 
 # 4. Текущее распределение классов
-def calc_ai_and_real_count(img: [tuple(str, int)]) -> tuple(int, int, int, int, float):
+#def calc_ai_and_real_count(img: [tuple(str, int)]) -> tuple(int, int, int, int, float):
+def calc_ai_and_real_count(img):
     ais:        int = 0
     reals:      int = 0
     total:      int = 0
