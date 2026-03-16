@@ -123,6 +123,8 @@ def train_and_save():
         train_dataset = ImageFolder(root=os.path.join(DATASET_PATH, 'train'), transform=transform)
         train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
 
+        print(train_dataset.imgs)
+
         a, r, t, d, wd, p = calc_ai_and_real_count(train_dataset.imgs)
         swd = 'поровну' if wd == -1 else 'больше AI' if wd == 0 else 'больше REAL'
         write_report('Текущее распределение классов     (\'{0}\')'.format(os.path.join(DATASET_PATH, 'train')))
