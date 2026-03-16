@@ -87,8 +87,8 @@ def extract_features(image_array):
 # 3. Процесс обучения
 def train_and_save():
     os.makedirs('models', exist_ok=True)
-    #device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    device = torch.device('cpu')
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    #device = torch.device('cpu')
     print(f"🖥️ Устройство для обучения: {device}")
 
     # --- Настройки ---
@@ -122,8 +122,6 @@ def train_and_save():
         # 1. Обучение CNN
         train_dataset = ImageFolder(root=os.path.join(DATASET_PATH, 'train'), transform=transform)
         train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
-
-        print(train_dataset.imgs)
 
         a, r, t, d, wd, p = calc_ai_and_real_count(train_dataset.imgs)
         swd = 'поровну' if wd == -1 else 'больше AI' if wd == 0 else 'больше REAL'
