@@ -153,7 +153,8 @@ def train_and_save():
                 loss.backward()
                 optimizer.step()
                 running_loss += loss.item()
-            print(f"Epoch {epoch+1}/{EPOCHS}, Loss: {running_loss/len(train_loader):.4f}")
+            eptxt = f"00{epoch+1}" if (epoch+1) < 10 else f"0{epoch+1}" if (epoch+1) >=10 and (epoch+1) < 100 else f"{epoch+1}"
+            print(f"Epoch {eptxt}/{EPOCHS}, Loss: {running_loss/len(train_loader):.4f}")
 
             if idx == 0:
                 loss_first = round(running_loss/len(train_loader), 4)
