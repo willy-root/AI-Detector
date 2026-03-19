@@ -485,17 +485,28 @@ class AIDetectorBot:
         """Создание изображения с результатами"""
         try:
             # Создаем копию для отрисовки
+            # Украшательсво убрано
+            '''
             result_img = original_image.copy()
+            '''
 
             # Добавляем текст с результатами
-            #text_color = (255, 160, 0) if results.get('combined_ai', 0.5) < 0.5 else (0, 0, 255)
+            # Украшательсво убрано
+            '''
+            # text_color = (255, 160, 0) if results.get('combined_ai', 0.5) < 0.5 else (0, 0, 255)
             text_color = (255, 160, 0)
+            '''
 
             # Базовый текст
+            # Украшательсво убрано
+            '''
             verdict = results.get('verdict', 'Uncertain')
             ai_prob = results.get('combined_ai', 0.5) * 100
+            '''
 
             # Добавляем текст на изображение
+            # Украшательсво убрано
+            '''
             #font = ImageFont.truetype("fonts/DejaVuSerif-Bold.ttf", 16)
             font = cv2.FONT_HERSHEY_SIMPLEX
             scale = 1.4
@@ -505,13 +516,21 @@ class AIDetectorBot:
                         (30, 70), font, scale, text_color, thickness)
             cv2.putText(result_img, f"Probability AI: {ai_prob:.1f}%",
                         (30, 140), font, scale, text_color, thickness)
+            '''
 
             # Добавляем рамку
+            # Украшательсво убрано
+            '''
             cv2.rectangle(result_img, (5, 5),
                           (result_img.shape[1] - 5, result_img.shape[0] - 5),
                           text_color, 2)
+            '''
 
-            return result_img
+            # Возвращается исходное изображение, т.к. ничего с ним не делаем
+            '''
+            return result_im
+            '''
+            return goriginal_image
 
         except Exception as e:
             logger.error(f"Error creating result: {e}")
